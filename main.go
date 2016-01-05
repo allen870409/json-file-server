@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 )
 
 // net/http based router
@@ -66,11 +67,11 @@ func main() {
 
 	reHandler := new(RegexpHandler)
 
-	reHandler.HandleFunc("/todos/$", "GET", server.todoIndex)
-	reHandler.HandleFunc("/todos/$", "PUT", server.todoCreate)
-	reHandler.HandleFunc("/todos/$", "POST", server.todoUpdate)
-	reHandler.HandleFunc("/todos/[0-9]+$", "GET", server.todoShow)
-	reHandler.HandleFunc("/todos/[0-9]+$", "DELETE", server.todoDelete)
+	reHandler.HandleFunc("/todos\\.json$", "GET", server.todoIndex)
+	reHandler.HandleFunc("/todos\\.json$", "PUT", server.todoCreate)
+	reHandler.HandleFunc("/todos\\.json$", "POST", server.todoUpdate)
+	reHandler.HandleFunc("/todos/[0-9]+\\.json$", "GET", server.todoShow)
+	reHandler.HandleFunc("/todos/[0-9]+\\.json$", "DELETE", server.todoDelete)
 
 	fmt.Println("Starting server on port 9000")
 	http.ListenAndServe(":9000", reHandler)
@@ -127,9 +128,9 @@ func (s *Server) todoCreate(res http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) todoShow(res http.ResponseWriter, req *http.Request) {
+	path := strings.Replace(req.URL.Path, ".json", "", 1)
 	r, _ := regexp.Compile(`\d+$`)
-
-	id := r.FindString(req.URL.Path)
+	id := r.FindString(path)
 	fmt.Println("----------------", id)
 	todo := &Todo{}
 	row :=s.db.QueryRow("SELECT id, name, completed FROM todo WHERE id=?", id)
@@ -163,9 +164,10 @@ func (s *Server) todoUpdate(res http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) todoDelete(res http.ResponseWriter, req *http.Request) {
+	path := strings.Replace(req.URL.Path, ".json", "", 1)
 	r, _ := regexp.Compile(`\d+$`)
-	Id := r.FindString(req.URL.Path)
-	s.db.Exec("DELETE FROM Todo WHERE Id=?", Id)
+	id := r.FindString(path)
+	s.db.Exec("DELETE FROM Todo WHERE Id=?", id)
 	res.WriteHeader(200)
 }
 
