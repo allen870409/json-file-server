@@ -43,7 +43,7 @@ func LIST(res http.ResponseWriter, req *http.Request) {
 	if len(req.Form["limit"]) > 0 {
 		limitStr += " limit " + req.Form["limit"][0]
 	}
-	stmtOut, err := MyDB.Prepare("SELECT * FROM json_file WHERE path = /test.json" + limitStr)
+	stmtOut, err := MyDB.Prepare("SELECT path FROM json_file WHERE path LIKE ?" + limitStr)
 	if err != nil {
 		fmt.Fprint(res, "error on prepare!")
 	}
