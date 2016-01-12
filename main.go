@@ -16,22 +16,22 @@ const PATH_REGEXP, FILE_REGEXP = "^/[\\w/]+/$", "^/[\\w/]*\\w?\\.json$"
 var MyDB *sql.DB
 
 func init(){
-	db, err := sql.Open("mysql", MYSQL_USER + ":" +MYSQL_PWD + "@/" + MYSQL_DB_NAME + "?charset=utf8")
+	var err error
+	MyDB, err = sql.Open("mysql", MYSQL_USER + ":" +MYSQL_PWD + "@/" + MYSQL_DB_NAME + "?charset=utf8")
 	if err != nil {
 		log.Fatal(err)
 	}
-	db.SetMaxIdleConns(100)
-	defer db.Close()
+	MyDB.SetMaxIdleConns(100)
 }
 
 func main(){
-
+	defer MyDB.Close()
 	myHandler := new(MyHandler)
 
 	myHandler.HandleFunc("^/[\\w/]+/$", "GET", LIST)
-	myHandler.HandleFunc("^/[\\w/]*\\w?\\.json$", "PUT", PUT)
-	myHandler.HandleFunc("^/[\\w/]*\\w?\\.json$", "POST", POST)
-	myHandler.HandleFunc("^/[\\w/]*\\w?\\.json$", "DELETE", DELETE)
+	myHandler.HandleFunc("^/[\\w/]*\\w+\\.json$", "PUT", PUT)
+	myHandler.HandleFunc("^/[\\w/]*\\w+\\.json$", "POST", POST)
+	myHandler.HandleFunc("^/[\\w/]*\\w+\\.json$", "DELETE", DELETE)
 
 	myHandler.HandleStatic("^/[\\w/]*\\w?\\.json$", "GET", http.FileServer(http.Dir(FILE_ROOT)))
 

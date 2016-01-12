@@ -6,6 +6,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"net/http"
 	"os"
+	"regexp"
 	"path/filepath"
 )
 
@@ -27,6 +28,9 @@ func PUT(res http.ResponseWriter, req *http.Request) {
 			fmt.Fprint(res, "ERROR saving to db - ", err)
 			tx.Rollback()
 		}else{
+			r := regexp.MustCompile("\\w+\\.json$")
+			dirAll := r.ReplaceAllString(osPath, "")
+			os.MkdirAll(dirAll, os.ModePerm)
 			ioutil.WriteFile(osPath, body, os.ModeAppend)
 		}
 		tx.Commit()
