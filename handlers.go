@@ -6,9 +6,15 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"net/http"
 	"os"
+	"encoding/json"
 	"regexp"
 	"path/filepath"
 )
+
+type ResponseJson struct{
+	Status int
+	Paths []string
+}
 
 func PUT(res http.ResponseWriter, req *http.Request) {
 	osPath := filepath.FromSlash(FILE_ROOT + req.URL.Path)
@@ -57,17 +63,18 @@ func LIST(res http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		fmt.Fprint(res, "error on query!")
 	}
-	paths := ""
+	var paths []string
 	var path string
 	for rows.Next(){
 		err := rows.Scan(&path)
 		if err != nil {
 			fmt.Println(err)
 		}else{
-			paths += path + "\n"
+			paths = append(paths, path)
 		}
 	}
-	fmt.Fprintf(res, paths)
+	body := &ResponseJson{Status:200, Paths: paths}
+	writeJson(res, body)
 	rows.Close()
 }
 
@@ -108,4 +115,22 @@ func DELETE(res http.ResponseWriter, req *http.Request) {
 	} else {
 		fmt.Fprint(res, "File not exists : " + req.URL.Path)
 	}
+}
+
+func writeJson(res http.ResponseWriter, data interface{}) {
+	res.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	payload, err := json.Marshal(data)
+	if checkErr(res, err) {
+		return
+	}
+	fmt.Fprintf(res, string(payload))
+}
+
+func checkErr(res http.ResponseWriter, err error) bool {
+	if err != nil {
+		http.Error(res, err.Error(), http.StatusInternalServerError)
+		return true
+	}
+	return false
 }
