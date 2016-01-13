@@ -13,26 +13,24 @@ import (
 
 type ResponseJson struct{
 	Status int
-	Paths []string
+	Data interface{}
 }
 
 func PUT(res http.ResponseWriter, req *http.Request) {
 	osPath := filepath.FromSlash(FILE_ROOT + req.URL.Path)
 	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		fmt.Fprint(res, "ERROR decoding JSON - ", err)
+	if checkErr(res, err) {
+		return
 	}
-
 	if _, err := os.Stat(osPath); os.IsNotExist(err){
 		tx, err := MyDB.Begin()
-		if err != nil {
-			fmt.Fprint(res, "ERROR saving to db - ", err)
+		if checkErr(res, err) {
 			return
 		}
 		_, err = tx.Exec("INSERT INTO json_file (path) VALUES(?)", req.URL.Path)
-		if err != nil {
-			fmt.Fprint(res, "ERROR saving to db - ", err)
+		if checkErr(res, err) {
 			tx.Rollback()
+			return
 		}else{
 			r := regexp.MustCompile("\\w+\\.json$")
 			dirAll := r.ReplaceAllString(osPath, "")
@@ -41,9 +39,10 @@ func PUT(res http.ResponseWriter, req *http.Request) {
 		}
 		tx.Commit()
 
-		fmt.Fprint(res, "Create Successful!!!")
+		writeJson(res, &ResponseJson{Status: http.StatusOK, Data:"Create Successful!!!"})
 	} else {
-		fmt.Fprint(res, "File exists : " + req.URL.Path)
+		body := &ResponseJson{Status: http.StatusBadRequest, Data: "File exists : " + req.URL.Path}
+		writeJson(res, body)
 	}
 }
 
@@ -54,26 +53,26 @@ func LIST(res http.ResponseWriter, req *http.Request) {
 		limitStr += " limit " + req.Form["limit"][0]
 	}
 	stmtOut, err := MyDB.Prepare("SELECT path FROM json_file WHERE path LIKE ?" + limitStr)
-	if err != nil {
-		fmt.Fprint(res, "error on prepare!")
+	if checkErr(res, err) {
+		return
 	}
 	defer stmtOut.Close()
 	b := req.URL.Path + "%"
 	rows, err := stmtOut.Query(b)
-	if err != nil {
-		fmt.Fprint(res, "error on query!")
+	if checkErr(res, err) {
+		return
 	}
 	var paths []string
 	var path string
 	for rows.Next(){
 		err := rows.Scan(&path)
-		if err != nil {
-			fmt.Println(err)
+		if checkErr(res, err) {
+			return
 		}else{
 			paths = append(paths, path)
 		}
 	}
-	body := &ResponseJson{Status:200, Paths: paths}
+	body := &ResponseJson{Status:http.StatusOK, Data: paths}
 	writeJson(res, body)
 	rows.Close()
 }
@@ -81,16 +80,16 @@ func LIST(res http.ResponseWriter, req *http.Request) {
 func POST(res http.ResponseWriter, req *http.Request) {
 	osPath := filepath.FromSlash(FILE_ROOT + req.URL.Path)
 	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		fmt.Fprint(res, "ERROR decoding JSON - ", err)
+	if checkErr(res, err) {
+		return
 	}
-
-	if _, err := os.Stat(osPath); err == nil{
+	_, e := os.Stat(osPath)
+	if checkErr(res, e) {
+		return
+	}else{
 		ioutil.WriteFile(osPath, body, os.ModeAppend)
 		res.WriteHeader(http.StatusCreated)
-		fmt.Fprint(res, "Update Successful!!!")
-	} else {
-		fmt.Fprint(res, "File not exists : " + req.URL.Path)
+		writeJson(res, &ResponseJson{Status: http.StatusOK, Data:"Update Successful!!!"})
 	}
 }
 
@@ -99,27 +98,25 @@ func DELETE(res http.ResponseWriter, req *http.Request) {
 	osPath := filepath.FromSlash(FILE_ROOT + req.URL.Path)
 	if _, err := os.Stat(osPath); err == nil{
 		tx, err := MyDB.Begin()
-		if err != nil {
-			fmt.Fprint(res, "ERROR delete to db - ", err)
+		if checkErr(res, err) {
 			return
 		}
 		_, err = tx.Exec("DELETE FROM json_file WHERE path=?", req.URL.Path)
-		if err != nil {
-			fmt.Fprint(res, "ERROR delete from db - ", err)
+		if checkErr(res, err) {
 			tx.Rollback()
+			return
 		}else{
 			os.Remove(osPath)
 		}
 		tx.Commit()
-		fmt.Fprint(res, "Delete Successful!!!")
+		writeJson(res, &ResponseJson{Status: http.StatusOK, Data:"Delete Successful!!!"})
 	} else {
-		fmt.Fprint(res, "File not exists : " + req.URL.Path)
+		writeJson(res, &ResponseJson{Status: http.StatusBadRequest, Data:"File not exists : " + req.URL.Path})
 	}
 }
 
 func writeJson(res http.ResponseWriter, data interface{}) {
 	res.Header().Set("Content-Type", "application/json; charset=utf-8")
-
 	payload, err := json.Marshal(data)
 	if checkErr(res, err) {
 		return
@@ -129,7 +126,9 @@ func writeJson(res http.ResponseWriter, data interface{}) {
 
 func checkErr(res http.ResponseWriter, err error) bool {
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusInternalServerError)
+		result := &ResponseJson{Status:http.StatusInternalServerError, Data: err.Error()}
+		payload, _ := json.Marshal(result)
+		fmt.Fprintf(res, string(payload))
 		return true
 	}
 	return false

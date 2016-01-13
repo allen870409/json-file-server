@@ -27,14 +27,13 @@ func init(){
 func main(){
 	defer MyDB.Close()
 	myHandler := new(MyHandler)
-
+	myHandler.HandleFunc("^/$", "GET", LIST)
 	myHandler.HandleFunc("^/[\\w/]+/$", "GET", LIST)
 	myHandler.HandleFunc("^/[\\w/]*\\w+\\.json$", "PUT", PUT)
 	myHandler.HandleFunc("^/[\\w/]*\\w+\\.json$", "POST", POST)
 	myHandler.HandleFunc("^/[\\w/]*\\w+\\.json$", "DELETE", DELETE)
 
 	myHandler.HandleStatic("^/[\\w/]*\\w?\\.json$", "GET", http.FileServer(http.Dir(FILE_ROOT)))
-
 	fmt.Println("Starting server on port : " + PORT)
 	http.ListenAndServe(PORT, myHandler)
 }
